@@ -66,6 +66,28 @@ Sem servidor e sem dependências: um script de shell (`curl` + `jq`) e um workfl
 
 Só mude `CREATE` para `true` depois que o `test_creation` disser "Pronto para criar".
 
+## Disparo confiável (recomendado)
+
+O `schedule` do GitHub é "melhor esforço": em repositório novo pode levar uma hora ou mais para
+começar, cada push que altera o workflow o registra de novo, e execuções atrasam ou são descartadas
+em horário de carga. Com janelas de estoque de poucos minutos, isso pesa. O workflow mantém o
+`schedule` como reserva, mas um agendador externo e gratuito é muito mais regular:
+
+1. Crie um **fine-grained personal access token** em
+   <https://github.com/settings/personal-access-tokens/new>: *Only select repositories* → a sua
+   cópia deste repositório, **Repository permissions → Actions: Read and write**, e nada mais. Ele
+   só dispara, cancela ou desliga workflows desse repositório; não lê os seus segredos nem o código.
+2. No [cron-job.org](https://cron-job.org) (grátis), crie um cronjob a cada 5 minutos:
+   - URL: `https://api.github.com/repos/<você>/<repo>/actions/workflows/watch.yml/dispatches`
+   - Método `POST`, corpo `{"ref":"main"}`
+   - Cabeçalhos: `Authorization: Bearer <token>`, `Accept: application/vnd.github+json`,
+     `X-GitHub-Api-Version: 2022-11-28`, `Content-Type: application/json`
+   - Ligue o aviso por e-mail em caso de falha (ele avisa quando o token vencer).
+3. O teste tem de responder `204 No Content`.
+
+Essas execuções aparecem como "Manually run by <você>" na aba Actions. Depois que o servidor for
+criado o workflow se desliga sozinho, então desligue também o cronjob e revogue o token.
+
 ## Como ele se comporta
 
 - **Silêncio enquanto nada muda.** Um push quando o tipo aparece (com os locais) e um de prioridade

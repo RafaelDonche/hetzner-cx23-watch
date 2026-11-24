@@ -66,6 +66,28 @@ No server, no dependencies: one shell script (`curl` + `jq`) and one workflow.
 
 Set `CREATE` to `true` only after `test_creation` reports "Ready to create".
 
+## Reliable trigger (recommended)
+
+GitHub's `schedule` is best effort: on a new repository it can take an hour or more to start, every
+push that changes the workflow re-registers it, and runs are delayed or dropped at busy times. With
+stock windows of a few minutes, that matters. The workflow keeps the `schedule` as a fallback, but a
+free external cron is far more regular:
+
+1. Create a **fine-grained personal access token** at
+   <https://github.com/settings/personal-access-tokens/new>: *Only select repositories* → your copy
+   of this repo, **Repository permissions → Actions: Read and write**, nothing else. It can only
+   run, cancel or disable workflows in that repository; it cannot read your secrets or your code.
+2. In [cron-job.org](https://cron-job.org) (free) create a cronjob, every 5 minutes:
+   - URL: `https://api.github.com/repos/<you>/<repo>/actions/workflows/watch.yml/dispatches`
+   - Method `POST`, body `{"ref":"main"}`
+   - Headers: `Authorization: Bearer <token>`, `Accept: application/vnd.github+json`,
+     `X-GitHub-Api-Version: 2022-11-28`, `Content-Type: application/json`
+   - Turn on the email notification on failure (it tells you when the token expires).
+3. A test run must answer `204 No Content`.
+
+These runs show up as "Manually run by <you>" in the Actions tab. After the server is created the
+workflow disables itself, so also disable the cronjob and revoke the token.
+
 ## How it behaves
 
 - **Quiet unless something changes.** One push when the type shows up (with the locations), one
