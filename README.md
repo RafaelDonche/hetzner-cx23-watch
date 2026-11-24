@@ -22,9 +22,11 @@ fica em `estado.txt`, e um commit só acontece quando ele muda.
    gh secret set NTFY_TOPIC  -R RafaelDonche/hetzner-cx23-watch
    ```
 
-4. **Teste do aviso.** Tem que chegar uma notificação no celular em menos de um minuto:
+4. **Ligar o workflow** (ele foi publicado desligado, para não falhar a cada 10 minutos antes de
+   os segredos existirem) e **testar o aviso**, que tem de chegar no celular em menos de um minuto:
 
    ```
+   gh workflow enable verificar.yml -R RafaelDonche/hetzner-cx23-watch
    gh workflow run verificar.yml -R RafaelDonche/hetzner-cx23-watch -f testar_aviso=true
    ```
 
