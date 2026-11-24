@@ -341,10 +341,14 @@ if [[ -n "$chosen" ]]; then
     backup=$(t backup_off)
     if [[ "$BACKUPS" == "true" ]]; then
         # Backups are a separate action, and a brand-new server stays locked for a few seconds.
+        # Success is read from the server itself (`backup_window` is set once backups are on),
+        # not from the action's status code: on 2026-11-24 every call succeeded on Hetzner's
+        # side while the script, expecting 201, reported a failure.
         backup=$(t backup_failed)
         for _ in $(seq 1 12); do
             api POST "/servers/$server_id/actions/enable_backup"
-            if [[ "$STATUS" == 201 ]]; then
+            api GET "/servers/$server_id"
+            if [[ "$STATUS" == 200 && $(jq -r '.server.backup_window // empty' <<<"$BODY") != "" ]]; then
                 backup=$(t backup_on)
                 break
             fi
