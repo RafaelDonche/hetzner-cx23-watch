@@ -1,47 +1,52 @@
 # hetzner-cx23-watch
 
-Consulta a API da Hetzner a cada 10 minutos e manda uma notificação no celular (pelo
-[ntfy](https://ntfy.sh)) quando o servidor **CX23** aparece disponível. Também avisa, com prioridade
-baixa, quando ele esgota de novo. Enquanto nada muda, fica em silêncio.
+Consulta a API da Hetzner a cada 5 minutos e manda uma notificação no celular (pelo
+[ntfy](https://ntfy.sh)) quando o servidor **CX23** aparece disponível ou esgota de novo. Com a
+criação automática ligada, **cria a máquina sozinho** na primeira janela de estoque no local
+escolhido e depois se desliga.
 
 É um script de shell (`verificar.sh`, com `curl` e `jq`) rodando no GitHub Actions. O último estado
 fica em `estado.txt`, e um commit só acontece quando ele muda.
 
-## Configuração (uma vez)
+A documentação completa (por que existe, segredos, roteiro de criação à mão, o que fazer depois)
+mora no repositório do projeto, em `docs/VERIFICADOR-CX23.md`.
 
-1. **Token da Hetzner, só leitura.** No Console da Hetzner, abra o projeto, vá em *Security* →
-   *API tokens* → *Generate API token* e escolha a permissão **Read**. Copie o token: ele aparece
-   uma vez só.
-2. **ntfy no celular.** Instale o app ntfy (Android ou iOS) e inscreva-se num tópico com nome
-   difícil de adivinhar. Quem souber o nome lê os avisos. Para gerar um:
-   `echo cx23-$(openssl rand -hex 12)`.
-3. **Os dois segredos no GitHub.** Cada comando pede o valor e não mostra na tela:
+## Segredos
 
-   ```
-   gh secret set HCLOUD_TOKEN -R RafaelDonche/hetzner-cx23-watch
-   gh secret set NTFY_TOPIC  -R RafaelDonche/hetzner-cx23-watch
-   ```
+| Segredo | O que é |
+| --- | --- |
+| `HCLOUD_TOKEN` | Token de API da Hetzner. **Read** basta para vigiar; **Read & Write** para criar |
+| `NTFY_TOPIC` | Nome do tópico do ntfy. Funciona como senha |
 
-4. **Ligar o workflow** (ele foi publicado desligado, para não falhar a cada 10 minutos antes de
-   os segredos existirem) e **testar o aviso**, que tem de chegar no celular em menos de um minuto:
+```
+gh secret set HCLOUD_TOKEN -R RafaelDonche/hetzner-cx23-watch
+gh secret set NTFY_TOPIC  -R RafaelDonche/hetzner-cx23-watch
+```
 
-   ```
-   gh workflow enable verificar.yml -R RafaelDonche/hetzner-cx23-watch
-   gh workflow run verificar.yml -R RafaelDonche/hetzner-cx23-watch -f testar_aviso=true
-   ```
+## Comandos
 
-5. **Uma consulta de verdade**, para conferir o token (o log mostra `Agora: ... | antes: ...`):
+```
+# Aviso de teste no celular
+gh workflow run verificar.yml -R RafaelDonche/hetzner-cx23-watch -f testar_aviso=true
 
-   ```
-   gh workflow run verificar.yml -R RafaelDonche/hetzner-cx23-watch
-   gh run watch -R RafaelDonche/hetzner-cx23-watch
-   ```
+# Conferir tudo que a criação precisa (chave, firewall, imagem, token com escrita), sem criar
+gh workflow run verificar.yml -R RafaelDonche/hetzner-cx23-watch -f testar_criacao=true
 
-## Bom saber
+# Consultar agora e acompanhar
+gh workflow run verificar.yml -R RafaelDonche/hetzner-cx23-watch
+gh run watch -R RafaelDonche/hetzner-cx23-watch
 
-- `available` é, nas palavras da Hetzner, "só um indicador, não garantia". Ao receber o aviso, crie
-  a máquina logo: o estoque pode acabar no meio do caminho.
-- Se o token parar de funcionar, a execução falha e o GitHub manda e-mail de falha.
-- Para vigiar outro tipo, mude `TIPO` no passo `verificar` do workflow (padrão: `cx23`).
-- Para desligar depois de comprar: `gh workflow disable verificar.yml -R RafaelDonche/hetzner-cx23-watch`.
-- O GitHub desliga workflows agendados de repositórios públicos depois de 60 dias sem atividade.
+# Desligar e religar
+gh workflow disable verificar.yml -R RafaelDonche/hetzner-cx23-watch
+gh workflow enable  verificar.yml -R RafaelDonche/hetzner-cx23-watch
+```
+
+A criação automática é ligada por `CRIAR` no workflow, e o local por `LOCAIS_PARA_CRIAR`.
+
+## Segurança
+
+- O workflow só roda pelo relógio ou por quem tem escrita no repositório. Não há gatilho de pull
+  request, então um fork nunca recebe os segredos.
+- O log é público: o script nunca imprime resposta inteira da API nem o IP da máquina criada.
+- A única ação de terceiros é o `actions/checkout`, oficial do GitHub, fixado pelo SHA.
+- Depois de criar a máquina, **revogue o token de escrita** no Console da Hetzner.
