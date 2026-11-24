@@ -35,7 +35,7 @@ jobs:
       # Criação automática: liga só depois de trocar o HCLOUD_TOKEN por um token "Read & Write" e
       # de o teste da criação (testar_criacao) passar. Com token só de leitura, falharia.
       CRIAR: 'true'
-      LOCAIS_PARA_CRIAR: 'hel1'
+      LOCAIS_PARA_CRIAR: 'hel1,nbg1'
     steps:
       # Fixado pelo SHA (v4), não pela tag: uma tag pode ser movida para outro código.
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
