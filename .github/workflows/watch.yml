@@ -1,0 +1,69 @@
+name: Hetzner stock watch
+
+# Runs only on schedule or when someone with write access dispatches it. There is no pull request
+# trigger: a fork never runs this workflow with your secrets.
+on:
+  schedule:
+    # Every 5 minutes, the GitHub minimum. GitHub may delay scheduled runs at busy times.
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+    inputs:
+      test_notification:
+        description: 'Send a test notification to your phone'
+        type: boolean
+        default: false
+      test_creation:
+        description: 'Check everything auto-create needs, without creating anything'
+        type: boolean
+        default: false
+
+permissions:
+  # Commit state.txt when availability changes (and only then).
+  contents: write
+  # Disable this workflow after the server is created.
+  actions: write
+
+concurrency:
+  group: watch
+  cancel-in-progress: false
+
+jobs:
+  watch:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      # Pinned by commit SHA (v4), not by tag: a tag can be moved to other code.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - id: watch
+        run: bash watch.sh
+        env:
+          HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          # Settings come from repository variables (Settings → Secrets and variables → Actions →
+          # Variables). They are not secret: they show up in the public log.
+          SERVER_TYPE: ${{ vars.SERVER_TYPE || 'cx23' }}
+          LANGUAGE: ${{ vars.LANGUAGE || 'en' }}
+          CREATE: ${{ vars.CREATE || 'false' }}
+          LOCATIONS: ${{ vars.LOCATIONS }}
+          SERVER_NAME: ${{ vars.SERVER_NAME }}
+          SSH_KEY: ${{ vars.SSH_KEY }}
+          FIREWALL: ${{ vars.FIREWALL }}
+          IMAGE: ${{ vars.IMAGE || 'ubuntu-24.04' }}
+          BACKUPS: ${{ vars.BACKUPS || 'true' }}
+          LABELS: ${{ vars.LABELS || 'created-by=hetzner-cx23-watch' }}
+          TEST_NOTIFICATION: ${{ inputs.test_notification || 'false' }}
+          TEST_CREATION: ${{ inputs.test_creation || 'false' }}
+
+      - if: always() && steps.watch.outputs.changed == 'true'
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add state.txt
+          git commit -m "Availability changed: $(cat state.txt || true)"
+          git push
+
+      - if: always() && steps.watch.outputs.created == 'true'
+        run: gh workflow disable watch.yml --repo "$GITHUB_REPOSITORY"
+        env:
+          GH_TOKEN: ${{ github.token }}
